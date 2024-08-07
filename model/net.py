@@ -78,8 +78,10 @@ class Res_CBAM_block(nn.Module):
 
         self.ca_layer = ChannelAttention(out_channels)
         self.sa_layer = SpatialAttention()
-        self.ca = None
-        self.sa = None
+        self.ca_assigned = None
+        self.sa_assigned = None
+        self.ca_reserved = None
+        self.sa_reserved = None
 
     def forward(self, x):
         residual = x
@@ -90,12 +92,18 @@ class Res_CBAM_block(nn.Module):
         out = self.relu(out)
         out = self.conv2(out)
         out = self.bn2(out)
-        if self.ca is None:
-            self.ca = self.ca_layer(out)
-        if self.sa is None:
-            self.sa = self.sa_layer(out)
-        out = self.ca * out
-        out = self.sa * out
+        if self.ca_assigned is None:
+            ca = self.ca_layer(out)
+        else:
+            ca = self.ca_assigned
+        if self.sa_assigned is None:
+            sa = self.sa_layer(out)
+        else:
+            sa = self.sa_assigned
+        self.ca_reserved = ca
+        self.sa_reserved = sa
+        out = ca * out
+        out = sa * out
         out += residual
         out = self.relu(out)
         return out
@@ -117,7 +125,8 @@ class Res_SP_block(nn.Module):
             self.shortcut = None
 
         self.sa_layer = SpatialAttention()
-        self.sa = None
+        self.sa_assigned = None
+        self.sa_reserved = None
 
     def forward(self, x):
         residual = x
@@ -128,9 +137,12 @@ class Res_SP_block(nn.Module):
         out = self.relu(out)
         out = self.conv2(out)
         out = self.bn2(out)
-        if self.sa is None:
-            self.sa = self.sa_layer(out)
-        out = self.sa * out
+        if self.sa_assigned is None:
+            sa = self.sa_layer(out)
+        else:
+            sa = self.sa_assigned
+        self.sa_reserved = sa
+        out = sa * out
         out += residual
         out = self.relu(out)
         return out
