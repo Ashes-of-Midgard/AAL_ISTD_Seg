@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from typing import Union, List
 #from   thop import profile, clever_format
 class Res_block(nn.Module):
     def __init__(self, in_channels, out_channels, stride = 1):
@@ -111,7 +112,7 @@ class Res_CBAM_block(nn.Module):
 
 class Res_SP_block(nn.Module):
     def __init__(self, in_channels, out_channels, stride = 1):
-        super(Res_CBAM_block, self).__init__()
+        super(Res_SP_block, self).__init__()
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size = 3, stride = stride, padding = 1)
         self.bn1   = nn.BatchNorm2d(out_channels)
         self.relu  = nn.ReLU(inplace = True)
@@ -153,6 +154,12 @@ class LightWeightNetwork(nn.Module):
         super(LightWeightNetwork, self).__init__()
         if block == 'Res_block':
             block = Res_block
+        elif block == 'Res_CBAM_block':
+            block = Res_CBAM_block
+        elif block == 'Res_SP_block':
+            block = Res_SP_block
+        else:
+            raise ValueError(f"Block type {block} is not supported in {type(self)}")
 
         self.pool = nn.MaxPool2d(2, 2)
         self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
@@ -191,6 +198,193 @@ class LightWeightNetwork(nn.Module):
 
         output = self.final(x0_4)
         return output
+    
+
+class LightWeightNetwork_AAL(nn.Module):
+    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[0]):
+        super(LightWeightNetwork_AAL, self).__init__()
+        if block == 'Res_CBAM_block':
+            block = Res_CBAM_block
+        elif block == 'Res_SP_block':
+            block = Res_SP_block
+        else:
+            raise ValueError(f"Block type {block} is not supported in {type(self)}")
+
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+
+        self.conv0_0 = self._make_layer(block, input_channels, nb_filter[0])
+        self.conv1_0 = self._make_layer(block, nb_filter[0],   nb_filter[1], num_blocks[0])
+        self.conv2_0 = self._make_layer(block, nb_filter[1],   nb_filter[2], num_blocks[1])
+        self.conv3_0 = self._make_layer(block, nb_filter[2],   nb_filter[3], num_blocks[2])
+        self.conv4_0 = self._make_layer(block, nb_filter[3],   nb_filter[4], num_blocks[3])
+
+        self.conv3_1 = self._make_layer(block, nb_filter[3] + nb_filter[4], nb_filter[3])
+        self.conv2_2 = self._make_layer(block, nb_filter[2] + nb_filter[3], nb_filter[2])
+        self.conv1_3 = self._make_layer(block, nb_filter[1] + nb_filter[2], nb_filter[1])
+        self.conv0_4 = self._make_layer(block, nb_filter[0] + nb_filter[1], nb_filter[0])
+
+        self.final = nn.Conv2d(nb_filter[0], num_classes, kernel_size=1)
+
+        self.attack_layer_ids = attack_layer_ids
+
+    def _make_layer(self, block, input_channels, output_channels, num_blocks=1):
+        layers = []
+        layers.append(block(input_channels, output_channels))
+        for i in range(num_blocks-1):
+            layers.append(block(output_channels, output_channels))
+        return nn.Sequential(*layers)
+
+    def forward_train(self, input, target, criterion):
+        init_deltas = [torch.zeros_like(input).requires_grad_()]
+        x0_0 = self.conv0_0(input+init_deltas[0])
+        sa0_0 = self.get_sa_reserved(self.conv0_0)
+
+        x0_0_pooled = self.pool(x0_0)
+        init_deltas.append(torch.zeros_like(x0_0_pooled).requires_grad_())
+        x1_0 = self.conv1_0(x0_0_pooled+init_deltas[1])
+        sa1_0 = self.get_sa_reserved(self.conv1_0)
+
+        x1_0_pooled = self.pool(x1_0)
+        init_deltas.append(torch.zeros_like(x1_0_pooled).requires_grad_())
+        x2_0 = self.conv2_0(x1_0_pooled+init_deltas[2])
+        sa2_0 = self.get_sa_reserved(self.conv2_0)
+
+        x2_0_pooled = self.pool(x2_0)
+        init_deltas.append(torch.zeros_like(x2_0_pooled).requires_grad_())
+        x3_0 = self.conv3_0(x2_0_pooled+init_deltas[3])
+        sa3_0 = self.get_sa_reserved(self.conv3_0)
+
+        x3_0_pooled = self.pool(x3_0)
+        init_deltas.append(torch.zeros_like(x3_0_pooled).requires_grad_())
+        x4_0 = self.conv4_0(x3_0_pooled+init_deltas[4])
+        sa4_0 = self.get_sa_reserved(self.conv4_0)
+
+        sa_list = [sa0_0, sa1_0, sa2_0, sa3_0, sa4_0]
+
+        x3_1 = self.conv3_1(torch.cat([x3_0, self.up(x4_0)], 1))
+        x2_2 = self.conv2_2(torch.cat([x2_0, self.up(x3_1)], 1))
+        x1_3 = self.conv1_3(torch.cat([x1_0, self.up(x2_2)], 1))
+        x0_4 = self.conv0_4(torch.cat([x0_0, self.up(x1_3)], 1))
+
+        output = self.final(x0_4)
+        loss = criterion(output, target)
+        loss:torch.Tensor
+        loss.backward()
+
+        adv_deltas = [None, None, None, None, None]
+        backtracked_sa = [None, None, None, None, None]
+        for layer_id in self.attack_layer_ids:
+            init_delta = init_deltas[layer_id]
+            init_delta:torch.Tensor
+            delta = 0.01 * torch.sign(init_delta.grad).detach()
+            
+            sa = sa_list[layer_id]
+            sa:torch.Tensor
+            delta_channel_max, _ = torch.max(delta, dim=1, keepdim=True)
+            back_mask = mask_top_rate(delta_channel_max, 0.01)
+            one = torch.ones_like(back_mask)
+
+            adv_deltas[layer_id] = delta
+            backtracked_sa[layer_id] = (one - 0.05 * back_mask) * sa.detach()
+
+        if 0 in self.attack_layer_ids:
+            input = input + backtracked_sa[0] * adv_deltas[0]
+            self.assign_sa(backtracked_sa[0], self.conv0_0)
+        x0_0 = self.conv0_0(input)
+        self.reset_sa(self.conv0_0)
+        
+        if 1 in self.attack_layer_ids:
+            x0_0 = x0_0 + backtracked_sa[1] * adv_deltas[1]
+            self.assign_sa(backtracked_sa[1], self.conv1_0)
+        x1_0 = self.conv1_0(self.pool(x0_0))
+        self.reset_sa(self.conv1_0)
+        
+        if 2 in self.attack_layer_ids:
+            x1_0 = x1_0 + backtracked_sa[2] * adv_deltas[2]
+            self.assign_sa(backtracked_sa[2], self.conv2_0)
+        x2_0 = self.conv2_0(self.pool(x1_0))
+        self.reset_sa(self.conv2_0)
+
+        if 3 in self.attack_layer_ids:
+            x2_0 = x2_0 + backtracked_sa[3] * adv_deltas[3]
+            self.assign_sa(backtracked_sa[3], self.conv3_0)
+        x3_0 = self.conv3_0(self.pool(x2_0))
+        self.reset_sa(self.conv3_0)
+
+        if 4 in self.attack_layer_ids:
+            x3_0 = x3_0 + backtracked_sa[4] * adv_deltas[4]
+            self.assign_sa(backtracked_sa[4], self.conv4_0)
+        x4_0 = self.conv4_0(self.pool(x3_0))
+        self.reset_sa(self.conv4_0)
+
+        x3_1 = self.conv3_1(torch.cat([x3_0, self.up(x4_0)], 1))
+        x2_2 = self.conv2_2(torch.cat([x2_0, self.up(x3_1)], 1))
+        x1_3 = self.conv1_3(torch.cat([x1_0, self.up(x2_2)], 1))
+        x0_4 = self.conv0_4(torch.cat([x0_0, self.up(x1_3)], 1))
+
+        output = self.final(x0_4)
+        return output
+    
+    def forward_test(self, input):
+        x0_0 = self.conv0_0(input)
+        x1_0 = self.conv1_0(self.pool(x0_0))
+        x2_0 = self.conv2_0(self.pool(x1_0))
+        x3_0 = self.conv3_0(self.pool(x2_0))
+        x4_0 = self.conv4_0(self.pool(x3_0))
+
+        x3_1 = self.conv3_1(torch.cat([x3_0, self.up(x4_0)], 1))
+        x2_2 = self.conv2_2(torch.cat([x2_0, self.up(x3_1)], 1))
+        x1_3 = self.conv1_3(torch.cat([x1_0, self.up(x2_2)], 1))
+        x0_4 = self.conv0_4(torch.cat([x0_0, self.up(x1_3)], 1))
+
+        output = self.final(x0_4)
+        return output
+    
+    def forward(self, input, target=None, criterion=None):
+        if self.training:
+            return self.forward_train(input, target, criterion)
+        else:
+            return self.forward_test(input)
+    
+    def get_sa_reserved(self, conv_layer: nn.Sequential):
+        res_block = list(conv_layer.children())[-1]
+        res_block: Union[Res_CBAM_block, Res_SP_block]
+        sa_reserved = res_block.sa_reserved
+        return sa_reserved
+    
+    def assign_sa(self, sa, conv_layer: nn.Sequential):
+        res_block = list(conv_layer.children())[-1]
+        res_block: Union[Res_CBAM_block, Res_SP_block]
+        res_block.sa_assigned = sa
+
+    def reset_sa(self, conv_layer: nn.Sequential):
+        res_block = list(conv_layer.children())[-1]
+        res_block: Union[Res_CBAM_block, Res_SP_block]
+        res_block.sa_assigned = None
+
+
+def mask_top_rate(data, kept_rate):
+    """
+    Given a batch of samples(in a tensor form) and a rate of kept values,
+    return a mask tensor which has the same shape as the input tensor. And
+    the positions where the input tensor's value is within its topk range
+    determined by the kept rate are set to be 1, others are set to be 0.
+
+    Args:
+        data (Tensor): The input samples
+        kept_rate (float): The kept rate. Of each sample in the batch, how
+            much ratio of the values from top are kept.
+
+    Returns:
+        Tensor: The mask tensor in the same shape as the input tensor.
+    """
+    data_flattened = data.view(data.size(0), -1)
+    values_kept, _ = data_flattened.topk(int(data_flattened.size(1)*kept_rate), dim=1)
+    values_min, _ = torch.min(values_kept, dim=-1)
+    values_min = values_min.unsqueeze(-1).repeat(1, data_flattened.size(-1))
+    mask = torch.ge(data_flattened, values_min).float().view(data.size())
+    return mask
 
 # # #####################################
 # # ### FLops, Params, Inference time evaluation
