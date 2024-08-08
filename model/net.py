@@ -203,7 +203,7 @@ class LightWeightNetwork(nn.Module):
     
 
 class LightWeightNetwork_AAL(nn.Module):
-    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[0]):
+    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[3,4]):
         super(LightWeightNetwork_AAL, self).__init__()
         if block == 'Res_CBAM_block':
             block = Res_CBAM_block
@@ -279,7 +279,7 @@ class LightWeightNetwork_AAL(nn.Module):
         for layer_id in self.attack_layer_ids:
             init_delta = init_deltas[layer_id]
             init_delta:torch.Tensor
-            delta = 0.01 * torch.sign(init_delta.grad).detach()
+            delta = 0.03 * torch.sign(init_delta.grad).detach()
             
             sa = sa_list[layer_id]
             sa:torch.Tensor
@@ -296,28 +296,32 @@ class LightWeightNetwork_AAL(nn.Module):
         x0_0 = self.conv0_0(input)
         self.reset_sa(self.conv0_0)
         
+        x0_0_pooled = self.pool(x0_0)
         if 1 in self.attack_layer_ids:
-            x0_0 = x0_0 + backtracked_sa[1] * adv_deltas[1]
+            x0_0_pooled = x0_0_pooled + backtracked_sa[1] * adv_deltas[1]
             self.assign_sa(backtracked_sa[1], self.conv1_0)
-        x1_0 = self.conv1_0(self.pool(x0_0))
+        x1_0 = self.conv1_0(x0_0_pooled)
         self.reset_sa(self.conv1_0)
         
+        x1_0_pooled = self.pool(x1_0)
         if 2 in self.attack_layer_ids:
-            x1_0 = x1_0 + backtracked_sa[2] * adv_deltas[2]
+            x1_0_pooled = x1_0_pooled + backtracked_sa[2] * adv_deltas[2]
             self.assign_sa(backtracked_sa[2], self.conv2_0)
-        x2_0 = self.conv2_0(self.pool(x1_0))
+        x2_0 = self.conv2_0(x1_0_pooled)
         self.reset_sa(self.conv2_0)
 
+        x2_0_pooled = self.pool(x2_0)
         if 3 in self.attack_layer_ids:
-            x2_0 = x2_0 + backtracked_sa[3] * adv_deltas[3]
+            x2_0_pooled = x2_0_pooled + backtracked_sa[3] * adv_deltas[3]
             self.assign_sa(backtracked_sa[3], self.conv3_0)
-        x3_0 = self.conv3_0(self.pool(x2_0))
+        x3_0 = self.conv3_0(x2_0_pooled)
         self.reset_sa(self.conv3_0)
 
+        x3_0_pooled = self.pool(x3_0)
         if 4 in self.attack_layer_ids:
-            x3_0 = x3_0 + backtracked_sa[4] * adv_deltas[4]
+            x3_0_pooled = x3_0_pooled + backtracked_sa[4] * adv_deltas[4]
             self.assign_sa(backtracked_sa[4], self.conv4_0)
-        x4_0 = self.conv4_0(self.pool(x3_0))
+        x4_0 = self.conv4_0(x3_0_pooled)
         self.reset_sa(self.conv4_0)
 
         x3_1 = self.conv3_1(torch.cat([x3_0, self.up(x4_0)], 1))
@@ -390,7 +394,7 @@ def mask_top_rate(data, kept_rate):
 
 
 class LightWeightNetwork_FGSM(nn.Module):
-    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[0]):
+    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[3,4]):
         super(LightWeightNetwork_FGSM, self).__init__()
         if block == 'Res_block':
             block = Res_block
@@ -460,28 +464,32 @@ class LightWeightNetwork_FGSM(nn.Module):
         for layer_id in self.attack_layer_ids:
             init_delta = init_deltas[layer_id]
             init_delta:torch.Tensor
-            delta = 0.01 * torch.sign(init_delta.grad).detach()
+            delta = 0.03 * torch.sign(init_delta.grad).detach()
             adv_deltas[layer_id] = delta
 
         if 0 in self.attack_layer_ids:
             input = input + adv_deltas[0]
         x0_0 = self.conv0_0(input)
         
+        x0_0_pooled = self.pool(x0_0)
         if 1 in self.attack_layer_ids:
-            x0_0 = x0_0 + adv_deltas[1]
-        x1_0 = self.conv1_0(self.pool(x0_0))
+            x0_0_pooled = x0_0_pooled + adv_deltas[1]
+        x1_0 = self.conv1_0(x0_0_pooled)
         
+        x1_0_pooled = self.pool(x1_0)
         if 2 in self.attack_layer_ids:
-            x1_0 = x1_0 + adv_deltas[2]
-        x2_0 = self.conv2_0(self.pool(x1_0))
+            x1_0_pooled = x1_0_pooled + adv_deltas[2]
+        x2_0 = self.conv2_0(x1_0_pooled)
 
+        x2_0_pooled = self.pool(x2_0)
         if 3 in self.attack_layer_ids:
-            x2_0 = x2_0 + adv_deltas[3]
-        x3_0 = self.conv3_0(self.pool(x2_0))
+            x2_0_pooled = x2_0_pooled + adv_deltas[3]
+        x3_0 = self.conv3_0(x2_0_pooled)
 
+        x3_0_pooled = self.pool(x3_0)
         if 4 in self.attack_layer_ids:
-            x3_0 = x3_0 + adv_deltas[4]
-        x4_0 = self.conv4_0(self.pool(x3_0))
+            x3_0_pooled = x3_0_pooled + adv_deltas[4]
+        x4_0 = self.conv4_0(x3_0_pooled)
 
         x3_1 = self.conv3_1(torch.cat([x3_0, self.up(x4_0)], 1))
         x2_2 = self.conv2_2(torch.cat([x2_0, self.up(x3_1)], 1))
