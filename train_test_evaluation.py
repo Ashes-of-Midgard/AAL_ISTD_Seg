@@ -17,7 +17,7 @@ from model.load_param_data         import  load_dataset, load_param
 
 # model
 
-from model.net          import  LightWeightNetwork, LightWeightNetwork_AAL
+from model.net          import  LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM
 
 import scipy.io as scio
 
@@ -60,8 +60,10 @@ class Trainer(object):
 
         if args.model == 'UNet':
             model       = LightWeightNetwork()
-        if args.model == 'UNet-AAL':
+        elif args.model == 'UNet-AAL':
             model = LightWeightNetwork_AAL()
+        elif args.model == 'UNet-FGSM':
+            model = LightWeightNetwork_FGSM()
 
         model           = model.cuda()
         model.apply(weights_init_xavier)
@@ -97,7 +99,7 @@ class Trainer(object):
         for i, ( data, labels) in enumerate(tbar):
             data   = data.cuda()
             labels = labels.cuda()
-            if type(self.model) == LightWeightNetwork_AAL:
+            if type(self.model) in (LightWeightNetwork_AAL, LightWeightNetwork_FGSM):
                 pred = self.model(data, labels, SoftIoULoss)
             else:
                 pred = self.model(data)
