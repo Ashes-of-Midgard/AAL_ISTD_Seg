@@ -37,18 +37,36 @@ class Trainer(object):
         self.val_img_ids, _ = load_dataset1(args.root, args.dataset, args.split_method)
 
         if args.dataset=='ICPR_Track2':
-            Mean_Value = [0.2518, 0.2518, 0.2519]
-            Std_value  = [0.2557, 0.2557, 0.2558]
+            mean_value = [0.2518, 0.2518, 0.2519]
+            std_value  = [0.2557, 0.2557, 0.2558]
+        elif args.dataset=='IRSTD-1k':
+            mean_value = [.485, .456, .406]
+            std_value = [.229, .224, .225]
+        elif args.dataset=='NUDT-SIRST':
+            mean_value = [.485, .456, .406]
+            std_value = [.229, .224, .225]
+        elif args.dataset=='NUAA-SIRST-v2':
+            mean_value = [111.89, 111.89, 111.89]
+            std_value = [27.62, 27.62, 27.62]
 
         # Preprocess and load data
         input_transform = transforms.Compose([
                           transforms.ToTensor(),
-                          transforms.Normalize(Mean_Value, Std_value)])
+                          transforms.Normalize(mean_value, std_value)])
         testset         = TestSetLoader (dataset_dir,img_id=val_img_ids,base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
         self.test_data  = DataLoader(dataset=testset,  batch_size=args.test_batch_size, shuffle=False, num_workers=args.workers,drop_last=False)
 
         # Choose and load model (this paper is finished by one GPU)
-        model       = LightWeightNetwork()
+        if args.model == 'UNet':
+            model       = LightWeightNetwork()
+        elif args.model == 'UNet-AAL':
+            model = LightWeightNetwork_AAL()
+        elif args.model == 'UNet-FGSM':
+            model = LightWeightNetwork_FGSM()
+        elif args.model == 'UNet-SA':
+            model = LightWeightNetwork_SA()
+        elif args.model == 'UNet-RA':
+            model = LightWeightNetwork_RA()
         model.apply(weights_init_xavier)
         print("Model Initializing")
         self.model      = model
@@ -66,7 +84,7 @@ class Trainer(object):
         eval_fuse_path    = './result_WS/'+ args.st_model +'/'+ 'visulization_fuse'
 
         #make_visulization_dir(target_image_path, target_dir)
-        make_visulization_dir(eval_image_path, eval_fuse_path)
+        #make_visulization_dir(eval_image_path, eval_fuse_path)
 
         # Load trained model
         self.model.load_state_dict(checkpoint['state_dict'])
@@ -85,7 +103,7 @@ class Trainer(object):
 
                 loss = SoftIoULoss(pred, labels)
                 #save_Ori_intensity_Pred_GT(pred, labels,target_image_path, val_img_ids, num, args.suffix,args.crop_size)
-                save_resize_pred(pred, size, args.crop_size, eval_image_path, self.val_img_ids, num, args.suffix)
+                #save_resize_pred(pred, size, args.crop_size, eval_image_path, self.val_img_ids, num, args.suffix)
                 #save_Pred_GT_for_split_evalution(pred, labels, eval_image_path, self.val_img_ids, num, args.suffix, args.crop_size)
 
                 num += 1

@@ -191,7 +191,7 @@ class Trainer(object):
                 labels = labels.cuda()
                 pred = self.model(data)
                 loss = SoftIoULoss(pred, labels)
-                save_Pred_GT_for_split_evalution(pred, labels, target_image_path, self.val_img_ids, num, args.suffix, args.crop_size)
+                #save_Pred_GT_for_split_evalution(pred, labels, target_image_path, self.val_img_ids, num, args.suffix, args.crop_size)
                 num += 1
 
                 losses.    update(loss.item(), pred.size(0))
