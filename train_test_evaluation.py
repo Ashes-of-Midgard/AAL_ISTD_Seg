@@ -131,7 +131,7 @@ class Trainer(object):
         losses = AverageMeter()
 
         with torch.no_grad():
-            for i, ( data, labels) in enumerate(tbar):
+            for i, (data, labels, img_sizes) in enumerate(tbar):
                 data   = data.cuda()
                 labels = labels.cuda()
                 pred   = self.model(data)
