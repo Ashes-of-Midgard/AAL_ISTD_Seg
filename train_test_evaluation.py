@@ -43,6 +43,15 @@ class Trainer(object):
         if args.dataset=='ICPR_Track2':
             mean_value = [0.2518, 0.2518, 0.2519]
             std_value  = [0.2557, 0.2557, 0.2558]
+        elif args.dataset=='IRSTD-1k':
+            mean_value = [.485, .456, .406]
+            std_value = [.229, .224, .225]
+        elif args.dataset=='NUDT-SIRST':
+            mean_value = [.485, .456, .406]
+            std_value = [.229, .224, .225]
+        elif args.dataset=='NUAA-SIRST-v2':
+            mean_value = [111.89, 111.89, 111.89]
+            std_value = [27.62, 27.62, 27.62]
 
         # Preprocess and load data
         input_transform = transforms.Compose([
