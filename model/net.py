@@ -550,20 +550,21 @@ class LightWeightNetwork_SA(nn.Module):
         return nn.Sequential(*layers)
 
     def forward_train(self, input):
-        x0_0 = self.conv0_0(input)
-        sa0_0 = self.get_sa_reserved(self.conv0_0)
+        with torch.no_grad():
+            x0_0 = self.conv0_0(input)
+            sa0_0 = self.get_sa_reserved(self.conv0_0)
 
-        x1_0 = self.conv1_0(self.pool(x0_0))
-        sa1_0 = self.get_sa_reserved(self.conv1_0)
+            x1_0 = self.conv1_0(self.pool(x0_0))
+            sa1_0 = self.get_sa_reserved(self.conv1_0)
 
-        x2_0 = self.conv2_0(self.pool(x1_0))
-        sa2_0 = self.get_sa_reserved(self.conv2_0)
+            x2_0 = self.conv2_0(self.pool(x1_0))
+            sa2_0 = self.get_sa_reserved(self.conv2_0)
 
-        x3_0 = self.conv3_0(self.pool(x2_0))
-        sa3_0 = self.get_sa_reserved(self.conv3_0)
+            x3_0 = self.conv3_0(self.pool(x2_0))
+            sa3_0 = self.get_sa_reserved(self.conv3_0)
 
-        x4_0 = self.conv4_0(self.pool(x3_0))
-        sa4_0 = self.get_sa_reserved(self.conv4_0)
+            x4_0 = self.conv4_0(self.pool(x3_0))
+            sa4_0 = self.get_sa_reserved(self.conv4_0)
 
         if 0 in self.attack_layer_ids:
             input = input + 0.01 * sa0_0.detach() * 2 * (torch.randn(sa0_0.size()).to(sa0_0.device) - 0.5)
@@ -574,25 +575,25 @@ class LightWeightNetwork_SA(nn.Module):
         if 1 in self.attack_layer_ids:
             x0_0 = x0_0 + 0.01 * sa1_0.detach() * 2 * (torch.randn(sa1_0.size()).to(sa1_0.device) - 0.5)
             self.assign_sa(sa1_0, self.conv1_0)
-        x1_0 = self.conv1_0(x0_0)
+        x1_0 = self.conv1_0(self.pool(x0_0))
         self.reset_sa(self.conv1_0)
 
         if 2 in self.attack_layer_ids:
             x1_0 = x1_0 + 0.01 * sa2_0.detach() * 2 * (torch.randn(sa2_0.size()).to(sa2_0.device) - 0.5)
             self.assign_sa(sa2_0, self.conv2_0)
-        x2_0 = self.conv2_0(x1_0)
+        x2_0 = self.conv2_0(self.pool(x1_0))
         self.reset_sa(self.conv2_0)
 
         if 3 in self.attack_layer_ids:
             x2_0 = x2_0 + 0.01 * sa3_0.detach() * 2 * (torch.randn(sa3_0.size()).to(sa3_0.device) - 0.5)
             self.assign_sa(sa3_0, self.conv3_0)
-        x3_0 = self.conv3_0(x2_0)
+        x3_0 = self.conv3_0(self.pool(x2_0))
         self.reset_sa(self.conv3_0)
 
         if 4 in self.attack_layer_ids:
             x3_0 = x3_0 + 0.01 * sa4_0.detach() * 2 * (torch.randn(sa4_0.size()).to(sa4_0.device) - 0.5)
             self.assign_sa(sa4_0, self.conv4_0)
-        x4_0 = self.conv4_0(x3_0)
+        x4_0 = self.conv4_0(self.pool(x3_0))
         self.reset_sa(self.conv4_0)
 
         x3_1 = self.conv3_1(torch.cat([x3_0, self.up(x4_0)], 1))
