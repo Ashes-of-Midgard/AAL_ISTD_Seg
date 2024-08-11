@@ -522,7 +522,7 @@ class LightWeightNetwork_FGSM(nn.Module):
 
 class LightWeightNetwork_FGSM_SA(nn.Module):
     def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[3,4]):
-        super(LightWeightNetwork_FGSM, self).__init__()
+        super(LightWeightNetwork_FGSM_SA, self).__init__()
         if block == 'Res_CBAM_block':
             block = Res_CBAM_block
         elif block == 'Res_SP_block':
@@ -649,6 +649,22 @@ class LightWeightNetwork_FGSM_SA(nn.Module):
             return self.forward_train(input, target, criterion)
         else:
             return self.forward_test(input)
+
+    def get_sa_reserved(self, conv_layer: nn.Sequential):
+        res_block = list(conv_layer.children())[-1]
+        res_block: Union[Res_CBAM_block, Res_SP_block]
+        sa_reserved = res_block.sa_reserved
+        return sa_reserved
+    
+    def assign_sa(self, sa, conv_layer: nn.Sequential):
+        res_block = list(conv_layer.children())[-1]
+        res_block: Union[Res_CBAM_block, Res_SP_block]
+        res_block.sa_assigned = sa
+
+    def reset_sa(self, conv_layer: nn.Sequential):
+        res_block = list(conv_layer.children())[-1]
+        res_block: Union[Res_CBAM_block, Res_SP_block]
+        res_block.sa_assigned = None
 
 
 class LightWeightNetwork_SA(nn.Module):

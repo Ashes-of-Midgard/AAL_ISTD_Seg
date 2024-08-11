@@ -116,7 +116,7 @@ class Trainer(object):
         for i, ( data, labels) in enumerate(tbar):
             data   = data.cuda()
             labels = labels.cuda()
-            if type(self.model) in (LightWeightNetwork_AAL, LightWeightNetwork_FGSM):
+            if type(self.model) in (LightWeightNetwork_AAL, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA):
                 pred = self.model(data, labels, SoftIoULoss)
             else:
                 pred = self.model(data)
