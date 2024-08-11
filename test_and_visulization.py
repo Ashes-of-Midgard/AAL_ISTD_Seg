@@ -63,6 +63,8 @@ class Trainer(object):
             model = LightWeightNetwork_AAL()
         elif args.model == 'UNet-FGSM':
             model = LightWeightNetwork_FGSM()
+        elif args.model == 'UNet-FGSM-SA':
+            model = LightWeightNetwork_FGSM_SA()
         elif args.model == 'UNet-SA':
             model = LightWeightNetwork_SA()
         elif args.model == 'UNet-RA':
