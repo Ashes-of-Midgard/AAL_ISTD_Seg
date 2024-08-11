@@ -17,7 +17,7 @@ from model.load_param_data         import  load_dataset, load_param
 
 # model
 
-from model.net          import  LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM, LightWeightNetwork_SA, LightWeightNetwork_RA
+from model.net          import  LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA, LightWeightNetwork_SA, LightWeightNetwork_RA
 
 import scipy.io as scio
 
@@ -75,6 +75,8 @@ class Trainer(object):
             model = LightWeightNetwork_AAL()
         elif args.model == 'UNet-FGSM':
             model = LightWeightNetwork_FGSM()
+        elif args.model == 'UNet-FGSM-SA':
+            model = LightWeightNetwork_FGSM_SA()
         elif args.model == 'UNet-SA':
             model = LightWeightNetwork_SA()
         elif args.model == 'UNet-RA':
