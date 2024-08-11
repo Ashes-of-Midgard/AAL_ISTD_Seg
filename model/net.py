@@ -599,27 +599,37 @@ class LightWeightNetwork_FGSM_SA(nn.Module):
 
         if 0 in self.attack_layer_ids:
             input = input + sa0_0.detach() * adv_deltas[0]
+            self.assign_sa(sa0_0, self.conv0_0)
         x0_0 = self.conv0_0(input)
+        self.reset_sa(self.conv0_0)
         
         x0_0_pooled = self.pool(x0_0)
         if 1 in self.attack_layer_ids:
             x0_0_pooled = x0_0_pooled + sa1_0.detach() * adv_deltas[1]
+            self.assign_sa(sa1_0, self.conv1_0)
         x1_0 = self.conv1_0(x0_0_pooled)
+        self.reset_sa(self.conv1_0)
         
         x1_0_pooled = self.pool(x1_0)
         if 2 in self.attack_layer_ids:
             x1_0_pooled = x1_0_pooled + sa2_0.detach() * adv_deltas[2]
+            self.assign_sa(sa2_0, self.conv2_0)
         x2_0 = self.conv2_0(x1_0_pooled)
+        self.reset_sa(self.conv2_0)
 
         x2_0_pooled = self.pool(x2_0)
         if 3 in self.attack_layer_ids:
             x2_0_pooled = x2_0_pooled + sa3_0.detach() * adv_deltas[3]
+            self.assign_sa(sa3_0, self.conv3_0)
         x3_0 = self.conv3_0(x2_0_pooled)
+        self.reset_sa(self.conv3_0)
 
         x3_0_pooled = self.pool(x3_0)
         if 4 in self.attack_layer_ids:
             x3_0_pooled = x3_0_pooled + sa4_0.detach() * adv_deltas[4]
+            self.assign_sa(sa4_0, self.conv4_0)
         x4_0 = self.conv4_0(x3_0_pooled)
+        self.reset_sa(self.conv4_0)
 
         x3_1 = self.conv3_1(torch.cat([x3_0, self.up(x4_0)], 1))
         x2_2 = self.conv2_2(torch.cat([x2_0, self.up(x3_1)], 1))
@@ -799,7 +809,7 @@ class LightWeightNetwork_SA(nn.Module):
 class LightWeightNetwork_RA(nn.Module):
     """RA: Random Attacks"""
     def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[0]):
-        super(LightWeightNetwork_SA, self).__init__()
+        super(LightWeightNetwork_RA, self).__init__()
         if block == 'Res_block':
             block = Res_block
         elif block == 'Res_CBAM_block':
