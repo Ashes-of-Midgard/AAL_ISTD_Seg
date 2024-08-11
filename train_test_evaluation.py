@@ -6,7 +6,7 @@ from tqdm             import tqdm
 import torch.optim    as optim
 from torch.optim      import lr_scheduler
 from torchvision      import transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from model.parse_args_train import  parse_args
 
 # metric, loss .etc
@@ -57,9 +57,11 @@ class Trainer(object):
         input_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean_value, std_value)])
-        trainset        = TrainSetLoader(self.train_dataset_dir,img_id=self.train_img_ids,base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
-        testset         = TestSetLoader (self.test_dataset_dir, img_id=self.val_img_ids,  base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
-        evalset         = TestSetLoader (self.test_dataset_dir, img_id=self.val_img_ids,  base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
+        traintestset = TrainSetLoader(self.train_dataset_dir,img_id=self.train_img_ids,base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
+        trainset, testset = random_split(traintestset,
+                                         [int(len(traintestset)*0.8), len(traintestset)-int(len(traintestset)*0.8)],
+                                         generator=torch.Generator().manual_seed(42))
+        evalset = TestSetLoader(self.test_dataset_dir, img_id=self.val_img_ids,  base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
 
         self.train_data = DataLoader(dataset=trainset, batch_size=args.train_batch_size, shuffle=True, num_workers=args.workers,drop_last=True)
         self.test_data  = DataLoader(dataset=testset,  batch_size=args.test_batch_size, num_workers=args.workers,drop_last=False)
@@ -135,7 +137,7 @@ class Trainer(object):
         losses = AverageMeter()
 
         with torch.no_grad():
-            for i, (data, labels, img_sizes) in enumerate(tbar):
+            for i, (data, labels) in enumerate(tbar):
                 data   = data.cuda()
                 labels = labels.cuda()
                 pred   = self.model(data)
