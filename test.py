@@ -1,19 +1,16 @@
 # torch and visulization
 import os
-import time
 
 from tqdm             import tqdm
-import torch.optim    as optim
-from torch.optim      import lr_scheduler
 from torchvision      import transforms
-from torch.utils.data import DataLoader, random_split
-from model.parse_args_train import  parse_args
+from torch.utils.data import DataLoader
+from model.parse_args_test import  parse_args
 
 # metric, loss .etc
 from model.utils  import *
 from model.metric import *
 from model.loss   import *
-from model.load_param_data import load_dataset, load_param
+from model.load_param_data import load_dataset
 
 # model
 
@@ -78,10 +75,7 @@ class Trainer(object):
         # Load trained model
         checkpoint = torch.load(args.model_dir)
         model.load_state_dict(checkpoint['state_dict'])
-
         model = model.cuda()
-        model.apply(weights_init_xavier)
-        print("Model Initializing")
         self.model = model
 
     def evaluation(self,epoch):
@@ -97,7 +91,6 @@ class Trainer(object):
                 labels = labels.cuda()
                 pred = self.model(data)
                 loss = SoftIoULoss(pred, labels)
-                #save_Pred_GT_for_split_evalution(pred, labels, target_image_path, self.val_img_ids, num, args.suffix, args.crop_size)
                 num += 1
 
                 losses.    update(loss.item(), pred.size(0))
