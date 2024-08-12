@@ -17,7 +17,8 @@ from model.load_param_data         import  load_dataset, load_param
 
 # model
 
-from model.net          import  LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA, LightWeightNetwork_SA, LightWeightNetwork_RA
+from model.net import (LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM,
+                       LightWeightNetwork_FGSM_SA, LightWeightNetwork_RA, LightWeightNetwork_SA)
 
 import scipy.io as scio
 
@@ -25,12 +26,12 @@ import scipy.io as scio
 class Trainer(object):
     def __init__(self, args):
         # Initial
-        self.args  = args
-        self.ROC   = ROCMetric(1, 10)
+        self.args = args
+        self.ROC = ROCMetric(1, 10)
         self.PD_FA = PD_FA(1, 10, args.crop_size)
-        self.mIoU  = mIoU(1)
+        self.mIoU = mIoU(1)
         self.save_prefix = '_'.join([args.model, args.dataset])
-        self.save_dir    = args.save_dir
+        self.save_dir = args.save_dir
         nb_filter, num_blocks= load_param(args.channel_size, args.backbone)
 
         # Read image index from TXT
@@ -38,7 +39,8 @@ class Trainer(object):
             self.train_dataset_dir = args.root + '/' + args.dataset
             self.test_dataset_dir  = args.root + '/' + args.dataset
 
-        self.train_img_ids, self.val_img_ids, self.test_txt = load_dataset(args.root, args.dataset, args.split_method)
+        self.train_img_ids, self.val_img_ids, self.test_img_ids = load_dataset(args.root, args.dataset, args.split_method)
+        #self.train_img_ids, self.val_img_ids, self.test_txt = load_dataset(args.root, args.dataset, args.split_method)
 
         if args.dataset=='ICPR_Track2':
             mean_value = [0.2518, 0.2518, 0.2519]
@@ -57,18 +59,16 @@ class Trainer(object):
         input_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean_value, std_value)])
-        traintestset = TrainSetLoader(self.train_dataset_dir,img_id=self.train_img_ids,base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
-        trainset, testset = random_split(traintestset,
-                                         [int(len(traintestset)*0.8), len(traintestset)-int(len(traintestset)*0.8)],
-                                         generator=torch.Generator().manual_seed(42))
+        
+        trainset = TrainSetLoader(self.train_dataset_dir, img_id=self.train_img_ids, base_size=args.base_size, crop_size=args.crop_size, transform=input_transform, suffix=args.suffix)
+        testset = TestSetLoader(self.train_dataset_dir, img_id=self.val_img_ids, base_size=args.base_size, crop_size=args.crop_size, transform=input_transform, suffix=args.suffix)
         evalset = TestSetLoader(self.test_dataset_dir, img_id=self.val_img_ids,  base_size=args.base_size, crop_size=args.crop_size, transform=input_transform,suffix=args.suffix)
 
-        self.train_data = DataLoader(dataset=trainset, batch_size=args.train_batch_size, shuffle=True, num_workers=args.workers,drop_last=True)
+        self.train_data = DataLoader(dataset=trainset, batch_size=args.train_batch_size, shuffle=True, num_workers=args.workers, drop_last=True)
         self.test_data  = DataLoader(dataset=testset,  batch_size=args.test_batch_size, num_workers=args.workers,drop_last=False)
         self.eval_data  = DataLoader(dataset=evalset,  batch_size=args.eval_batch_size, num_workers=args.workers,drop_last=False)
 
         # Choose and load model (this paper is finished by one GPU)
-
         if args.model == 'UNet':
             model       = LightWeightNetwork()
         elif args.model == 'UNet-AAL':
@@ -82,18 +82,18 @@ class Trainer(object):
         elif args.model == 'UNet-RA':
             model = LightWeightNetwork_RA()
 
-        model           = model.cuda()
+        model = model.cuda()
         model.apply(weights_init_xavier)
         print("Model Initializing")
-        self.model      = model
+        self.model = model
 
         # Optimizer and lr scheduling
 
         if args.optimizer == 'Adagrad':
-            self.optimizer  = torch.optim.Adagrad(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
+            self.optimizer = torch.optim.Adagrad(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
 
-        if args.scheduler   == 'CosineAnnealingLR':
-            self.scheduler  = lr_scheduler.CosineAnnealingLR( self.optimizer, T_max=args.epochs, eta_min=args.min_lr)
+        if args.scheduler == 'CosineAnnealingLR':
+            self.scheduler = lr_scheduler.CosineAnnealingLR( self.optimizer, T_max=args.epochs, eta_min=args.min_lr)
 
 
         # DATA_Evaluation metrics
@@ -139,7 +139,7 @@ class Trainer(object):
         losses = AverageMeter()
 
         with torch.no_grad():
-            for i, (data, labels) in enumerate(tbar):
+            for i, (data, labels, img_sizes) in enumerate(tbar):
                 data   = data.cuda()
                 labels = labels.cuda()
                 pred   = self.model(data)

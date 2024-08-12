@@ -2,24 +2,25 @@ import numpy   as np
 from   PIL     import Image
 from   skimage import measure
 
-def load_dataset (root, dataset, split_method):
+from typing import List, Tuple
+
+def load_dataset(root:str, dataset:str, split_method:str) -> Tuple[List[str], List[str], List[str]]:
     train_txt = root + '/' + dataset + '/' + split_method + '/' + 'train.txt'
+    val_txt = root + '/' + dataset + '/' + split_method + '/' + 'val.txt'
     test_txt  = root + '/' + dataset + '/' + split_method + '/' + 'test.txt'
+    
     train_img_ids = []
     val_img_ids = []
+    test_img_ids = []
+
     with open(train_txt, "r") as f:
-        line = f.readline()
-        while line:
-            train_img_ids.append(line.split('\n')[0])
-            line = f.readline()
-        f.close()
+        train_img_ids = [id.strip('\n') for id in f.readlines() if len(id)>0]
+    with open(val_txt, "r") as f:
+        val_img_ids = [id.strip('\n') for id in f.readlines() if len(id)>0]
     with open(test_txt, "r") as f:
-        line = f.readline()
-        while line:
-            val_img_ids.append(line.split('\n')[0])
-            line = f.readline()
-        f.close()
-    return train_img_ids,val_img_ids,test_txt
+        test_img_ids = [id.strip('\n') for id in f.readlines() if len(id)>0]
+    
+    return train_img_ids, val_img_ids, test_img_ids
 
 def load_dataset1 (root, dataset, split_method):
     test_txt  = root + '/' + dataset + '/' + split_method + '/' + 'test.txt'

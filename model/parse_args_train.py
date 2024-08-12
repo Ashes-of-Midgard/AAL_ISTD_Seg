@@ -7,6 +7,7 @@ def parse_args():
 
     # choose model
     parser.add_argument('--model', type=str, default='UNet')
+    parser.add_argument('--model_dir', type=str)
     parser.add_argument('--attention', type=str, default='Res_block')
     parser.add_argument('--downlayer', type=str, default='two',
                         help='three, four')
@@ -23,14 +24,13 @@ def parse_args():
 
 
     # data and pre-process
-    parser.add_argument('--dataset',      type=str, default='ICPR_Track2')
+    parser.add_argument('--dataset', type=str)
     parser.add_argument('--mode', type=str, default='TXT', help='mode name:  TXT, Ratio')
     parser.add_argument('--lr_mode', type=str, default='fixed_lr', help='lr_mode name:  adjusted_lr, fixed_lr')
     parser.add_argument('--test_size', type=float, default='0.5', help='when mode==Ratio')
     parser.add_argument('--root', type=str, default='./dataset')
     parser.add_argument('--suffix', type=str, default='.png')
-    parser.add_argument('--split_method', type=str, default='70_20',
-                        help='70_20')
+    parser.add_argument('--split_method', type=str, default='default_split')
     parser.add_argument('--workers', type=int, default=4,
                         metavar='N', help='dataloader threads')
     parser.add_argument('--in_channels', type=int, default=3,
