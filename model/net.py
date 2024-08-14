@@ -305,6 +305,9 @@ class LightWeightNetwork_AAL(nn.Module):
         self.reserved_sa = None
         self.reserved_backtracked_sa = None
         self.reserved_delta = None
+        self.reserved_attacked_img = None
+        self.reserved_attacked_img_sa = None
+        self.reserved_attacked_img_backtracked_sa = None
 
     def _make_layer(self, block, input_channels, output_channels, num_blocks=1):
         layers = []
@@ -346,6 +349,10 @@ class LightWeightNetwork_AAL(nn.Module):
         backtracked_sa = backtracked_sa.detach()
         self.reserved_backtracked_sa = backtracked_sa
         ### end backtracking ###
+
+        self.reserved_attacked_img = input+self.eps*adv_delta
+        self.reserved_attacked_img_sa = input+self.eps*sa*adv_delta
+        self.reserved_attacked_img_backtracked_sa = input+self.eps*backtracked_sa*adv_delta
 
         x0_0 = self.conv0_0(input+self.eps*backtracked_sa*adv_delta)
         x1_0 = self.conv1_0(self.pool(x0_0))

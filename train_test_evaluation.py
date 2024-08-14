@@ -132,31 +132,31 @@ class Trainer(object):
                 if i==0 and args.save_inter and type(self.model) == LightWeightNetwork_AAL:
                     os.makedirs('./result_WS/'+args.save_dir+'/'+'inter_results',exist_ok=True)
                     size = [img_sizes[0][0].item(), img_sizes[0][1].item()]
+                    
                     ori_img = tensor_to_img(de_normalize(data[0], self.mean_value, self.std_value),size)
+                    mask = tensor_to_img(labels[0], size)
+
                     sa = sa_heat_map(self.model.reserved_sa[0]).resize(size)
                     backtracked_sa = sa_heat_map(self.model.reserved_backtracked_sa[0]).resize(size)
                     sa_overlayed = sa_over_img(sa,
                                                ori_img)
                     backtracked_sa_overlayed = sa_over_img(backtracked_sa,
                                                            ori_img)
-                    mask = tensor_to_img(labels[0], size)
+                    
+                    delta = tensor_to_img(self.model.reserved_delta[0],size)
+                    attacked_img = tensor_to_img(de_normalize(self.model.reserved_attacked_img,self.mean_value,self.std_value),size)
+                    attacked_img_sa = tensor_to_img(de_normalize(self.model.reserved_attacked_img_sa,self.mean_value,self.std_value),size)
+                    attacked_img_backtracked = tensor_to_img(de_normalize(self.model.reserved_attacked_img_backtracked_sa,self.mean_value,self.std_value),size)
+                    
                     ori_img.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'ori_img_'+str(epoch)+'.png')
+                    mask.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'mask_'+str(epoch)+'.png')
+
                     sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'sa_'+str(epoch)+'.png')
                     backtracked_sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'backtracked_sa_'+str(epoch)+'.png')
                     sa_overlayed.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'sa_over_'+str(epoch)+'.png')
                     backtracked_sa_overlayed.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'backtracked_sa_over_'+str(epoch)+'.png')
-                    mask.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'mask_'+str(epoch)+'.png')
-                    delta = tensor_to_img(self.model.reserved_delta[0],size)
+                    
                     delta.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'delta_'+str(epoch)+'.png')
-                    attacked_img = tensor_to_img(de_normalize(data[0]+args.eps*self.model.reserved_delta[0],
-                                                              self.mean_value,self.std_value),
-                                                size)
-                    attacked_img_sa = tensor_to_img(de_normalize(data[0]+args.eps*self.model.reserved_sa[0]*self.model.reserved_delta[0],
-                                                                 self.mean_value, self.std_value),
-                                                    size)
-                    attacked_img_backtracked = tensor_to_img(de_normalize(data[0]+args.eps*self.model.reserved_backtracked_sa[0]*self.model.reserved_delta[0],
-                                                                          self.mean_value, self.std_value),
-                                                             size)
                     attacked_img.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_'+str(epoch)+'.png')
                     attacked_img_sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_sa_'+str(epoch)+'.png')
                     attacked_img_backtracked.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_backtracked_'+str(epoch)+'.png')
