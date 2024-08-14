@@ -12,6 +12,7 @@ def parse_args():
     parser.add_argument('--downlayer', type=str, default='two',
                         help='three, four')
     parser.add_argument('--supervision', type=str, default='Full')
+    parser.add_argument('--attack_layer', type=int, nargs='+', default=[0])
 
 
     # parameter for DNANet

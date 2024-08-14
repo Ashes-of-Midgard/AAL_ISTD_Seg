@@ -40,12 +40,16 @@ class SpatialAttention(nn.Module):
         padding = 3 if kernel_size == 7 else 1
         self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
         self.sigmoid = nn.Sigmoid()
+        self.norm = nn.BatchNorm2d(1)
+        
     def forward(self, x):
         avg_out = torch.mean(x, dim=1, keepdim=True)
         max_out, _ = torch.max(x, dim=1, keepdim=True)
         x = torch.cat([avg_out, max_out], dim=1)
         x = self.conv1(x)
-        return self.sigmoid(x)
+        x = self.sigmoid(x)
+        x = self.norm(x)
+        return x
 
 
 class ChannelAttention(nn.Module):
@@ -200,10 +204,10 @@ class LightWeightNetwork(nn.Module):
 
         output = self.final(x0_4)
         return output
-    
+
 
 class LightWeightNetwork_AAL(nn.Module):
-    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[3,4]):
+    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[0]):
         super(LightWeightNetwork_AAL, self).__init__()
         if block == 'Res_CBAM_block':
             block = Res_CBAM_block
@@ -230,6 +234,12 @@ class LightWeightNetwork_AAL(nn.Module):
 
         self.attack_layer_ids = attack_layer_ids
 
+        # reserved(imgs, attentions)
+        self.reserved_img = None
+        self.reserved_sa = None
+        self.reserved_backtracked_sa = None
+        self.reserved_delta = None
+
     def _make_layer(self, block, input_channels, output_channels, num_blocks=1):
         layers = []
         layers.append(block(input_channels, output_channels))
@@ -238,6 +248,7 @@ class LightWeightNetwork_AAL(nn.Module):
         return nn.Sequential(*layers)
 
     def forward_train(self, input, target, criterion):
+        self.reserved_img = input
         init_deltas = [torch.zeros_like(input).requires_grad_()]
         x0_0 = self.conv0_0(input+init_deltas[0])
         sa0_0 = self.get_sa_reserved(self.conv0_0)
@@ -280,15 +291,18 @@ class LightWeightNetwork_AAL(nn.Module):
             init_delta = init_deltas[layer_id]
             init_delta:torch.Tensor
             delta = 0.03 * torch.sign(init_delta.grad).detach()
+            self.reserved_delta = torch.sign(init_delta.grad).detach()
             
             sa = sa_list[layer_id]
             sa:torch.Tensor
+            self.reserved_sa = sa.detach()
             delta_channel_max, _ = torch.max(delta, dim=1, keepdim=True)
             back_mask = mask_top_rate(delta_channel_max, 0.01)
             one = torch.ones_like(back_mask)
 
             adv_deltas[layer_id] = delta
             backtracked_sa[layer_id] = (one - 0.05 * back_mask) * sa.detach()
+            self.reserved_backtracked_sa = backtracked_sa[layer_id]
 
         if 0 in self.attack_layer_ids:
             input = input + backtracked_sa[0] * adv_deltas[0]
@@ -394,7 +408,7 @@ def mask_top_rate(data, kept_rate):
 
 
 class LightWeightNetwork_FGSM(nn.Module):
-    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[3,4]):
+    def __init__(self, num_classes=1, input_channels=3, block='Res_SP_block', num_blocks=[2,2,2,2], nb_filter=[8, 16, 32, 64, 128], attack_layer_ids=[0]):
         super(LightWeightNetwork_FGSM, self).__init__()
         if block == 'Res_block':
             block = Res_block

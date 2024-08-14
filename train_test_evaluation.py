@@ -3,11 +3,14 @@ import os
 import time
 
 from tqdm             import tqdm
+from torch import Tensor
 import torch.optim    as optim
 from torch.optim      import lr_scheduler
 from torchvision      import transforms
 from torch.utils.data import DataLoader, random_split
 from model.parse_args_train import  parse_args
+from typing import Tuple, List
+import matplotlib
 
 # metric, loss .etc
 from model.utils  import *
@@ -54,6 +57,11 @@ class Trainer(object):
         elif args.dataset=='NUAA-SIRST-v2':
             mean_value = [111.89, 111.89, 111.89]
             std_value = [27.62, 27.62, 27.62]
+        else:
+            mean_value = [0,0,0]
+            std_value=[1,1,1]
+        self.mean_value = mean_value
+        self.std_value = std_value
 
         # Preprocess and load data
         input_transform = transforms.Compose([
@@ -72,15 +80,15 @@ class Trainer(object):
         if args.model == 'UNet':
             model       = LightWeightNetwork()
         elif args.model == 'UNet-AAL':
-            model = LightWeightNetwork_AAL()
+            model = LightWeightNetwork_AAL(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-FGSM':
-            model = LightWeightNetwork_FGSM()
+            model = LightWeightNetwork_FGSM(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-FGSM-SA':
-            model = LightWeightNetwork_FGSM_SA()
+            model = LightWeightNetwork_FGSM_SA(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-SA':
-            model = LightWeightNetwork_SA()
+            model = LightWeightNetwork_SA(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-RA':
-            model = LightWeightNetwork_RA()
+            model = LightWeightNetwork_RA(attack_layer_ids=args.attack_layer)
 
         model = model.cuda()
         model.apply(weights_init_xavier)
@@ -113,11 +121,43 @@ class Trainer(object):
         tbar = tqdm(self.train_data)
         self.model.train()
         losses = AverageMeter()
-        for i, ( data, labels) in enumerate(tbar):
+        for i, ( data, labels, img_sizes) in enumerate(tbar):
             data   = data.cuda()
             labels = labels.cuda()
             if type(self.model) in (LightWeightNetwork_AAL, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA):
                 pred = self.model(data, labels, SoftIoULoss)
+                if i==0 and args.save_inter and type(self.model) == LightWeightNetwork_AAL:
+                    os.makedirs('./result_WS/'+args.save_dir+'/'+'inter_results',exist_ok=True)
+                    size = [img_sizes[0][0].item(), img_sizes[0][1].item()]
+                    ori_img = tensor_to_img(de_normalize(data[0], self.mean_value, self.std_value),size)
+                    sa = sa_heat_map(self.model.reserved_sa[0]).resize(size)
+                    backtracked_sa = sa_heat_map(self.model.reserved_backtracked_sa[0]).resize(size)
+                    sa_overlayed = sa_over_img(sa,
+                                               ori_img)
+                    backtracked_sa_overlayed = sa_over_img(backtracked_sa,
+                                                           ori_img)
+                    mask = tensor_to_img(labels[0], size)
+                    ori_img.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'ori_img_'+str(epoch)+'.png')
+                    sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'sa_'+str(epoch)+'.png')
+                    backtracked_sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'backtracked_sa_'+str(epoch)+'.png')
+                    sa_overlayed.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'sa_over_'+str(epoch)+'.png')
+                    backtracked_sa_overlayed.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'backtracked_sa_over_'+str(epoch)+'.png')
+                    mask.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'mask_'+str(epoch)+'.png')
+                    if args.attack_layer == [0]:
+                        delta = tensor_to_img(self.model.reserved_delta[0],size)
+                        delta.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'delta_'+str(epoch)+'.png')
+                        attacked_img = tensor_to_img(de_normalize(data[0]+0.01*self.model.reserved_delta[0],
+                                                                  self.mean_value,self.std_value),
+                                                     size)
+                        attacked_img_sa = tensor_to_img(de_normalize(data[0]+0.01*self.model.reserved_sa[0]*self.model.reserved_delta[0],
+                                                                     self.mean_value, self.std_value),
+                                                        size)
+                        attacked_img_backtracked = tensor_to_img(de_normalize(data[0]+0.01*self.model.reserved_backtracked_sa[0]*self.model.reserved_delta[0],
+                                                                              self.mean_value, self.std_value),
+                                                                 size)
+                        attacked_img.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_'+str(epoch)+'.png')
+                        attacked_img_sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_sa_'+str(epoch)+'.png')
+                        attacked_img_backtracked.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_backtracked_'+str(epoch)+'.png')
             else:
                 pred = self.model(data)
             loss = SoftIoULoss(pred, labels)
@@ -213,6 +253,44 @@ class Trainer(object):
             print('PD:', PD)
             print('FA:', FA)
             self.best_iou = mean_IOU
+
+
+def tensor_to_img(input:Tensor, img_size:Tuple[int, int]) -> Image.Image:
+    #img_array = (input * 255).type(torch.uint8)
+    #img_array = img_array.permute([1,2,0])
+    #img_array = np.array(img_array.detach().cpu())
+    img = transforms.ToPILImage()(input)
+    #if img_array.shape[2] == 3:
+    #    img = Image.fromarray(img_array, mode='RGB').convert('L')
+    #elif img_array.shape[2] == 1:
+    #    img_array = img_array[:,:,0]
+    #    img = Image.fromarray(img_array, mode='L')
+    img = img.resize(img_size)
+    return img
+
+
+def de_normalize(input:Tensor, mean_value:List, std_value:List) -> Tensor:
+    output = torch.zeros_like(input)
+    output[0,:,:] = input[0,:,:] * std_value[0] + mean_value[0]
+    output[1,:,:] = input[1,:,:] * std_value[1] + mean_value[1]
+    output[2,:,:] = input[2,:,:] * std_value[2] + mean_value[2]
+    return output
+
+
+def sa_over_img(sa:Image.Image, img:Image.Image) -> Image:
+    sa = sa.resize(img.size)
+    overlayed_img = Image.blend(sa, img, 0.5)
+    return overlayed_img
+
+
+def sa_heat_map(sa:Tensor) -> Image.Image:
+    assert sa.size(0) == 1
+    sa = np.array(sa[0,:,:].detach().cpu())
+    coolwarm_cm = matplotlib.colormaps['coolwarm']
+    heat_map = coolwarm_cm(sa)
+    heat_map = (heat_map[:,:,:3] * 255).astype(np.int8)
+    heat_map = Image.fromarray(heat_map, mode='RGB')
+    return heat_map
 
 
 def main(args):

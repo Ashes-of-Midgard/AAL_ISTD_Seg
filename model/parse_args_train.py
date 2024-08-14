@@ -5,6 +5,8 @@ def parse_args():
     """Training Options for Segmentation Experiments"""
     parser = argparse.ArgumentParser(description='Dense_Nested_Attention_Network_For_SIRST')
 
+    parser.add_argument('--save_inter', action='store_true')
+
     # choose model
     parser.add_argument('--model', type=str, default='UNet')
     parser.add_argument('--model_dir', type=str)
@@ -12,6 +14,7 @@ def parse_args():
     parser.add_argument('--downlayer', type=str, default='two',
                         help='three, four')
     parser.add_argument('--supervision', type=str, default='Full')
+    parser.add_argument('--attack_layer', type=int, nargs='+', default=[0])
 
 
     # parameter for DNANet

@@ -75,7 +75,8 @@ class TrainSetLoader(Dataset):
 
         img  = Image.open(img_path).convert('RGB')         ##由于输入的三通道、单通道图像都有，所以统一转成RGB的三通道，这也符合Unet等网络的期待尺寸
         mask = Image.open(label_path)
-
+        w, h = img.size
+        size = [w, h]
 
         # synchronized transform
         img, mask = self._sync_transform(img, mask, img_id)
@@ -87,7 +88,7 @@ class TrainSetLoader(Dataset):
         mask = np.expand_dims(mask[:,:,0] if len(np.shape(mask))>2 else mask, axis=0).astype('float32')/ 255.0
 
 
-        return img, torch.from_numpy(mask)  #img_id[-1]
+        return img, torch.from_numpy(mask), size  #img_id[-1]
 
     def __len__(self):
         return len(self._items)

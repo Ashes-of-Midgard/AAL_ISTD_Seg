@@ -48,6 +48,9 @@ class Trainer(object):
         elif args.dataset=='NUAA-SIRST-v2':
             mean_value = [111.89, 111.89, 111.89]
             std_value = [27.62, 27.62, 27.62]
+        else:
+            mean_value = [0,0,0]
+            std_value=[1,1,1]
 
         # Preprocess and load data
         input_transform = transforms.Compose([
@@ -62,15 +65,15 @@ class Trainer(object):
         if args.model == 'UNet':
             model = LightWeightNetwork()
         elif args.model == 'UNet-AAL':
-            model = LightWeightNetwork_AAL()
+            model = LightWeightNetwork_AAL(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-FGSM':
-            model = LightWeightNetwork_FGSM()
+            model = LightWeightNetwork_FGSM(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-FGSM-SA':
-            model = LightWeightNetwork_FGSM_SA()
+            model = LightWeightNetwork_FGSM_SA(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-SA':
-            model = LightWeightNetwork_SA()
+            model = LightWeightNetwork_SA(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-RA':
-            model = LightWeightNetwork_RA()
+            model = LightWeightNetwork_RA(attack_layer_ids=args.attack_layer)
 
         # Load trained model
         checkpoint = torch.load(args.model_dir)
