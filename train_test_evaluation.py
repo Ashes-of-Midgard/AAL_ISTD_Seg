@@ -144,9 +144,9 @@ class Trainer(object):
                                                            ori_img)
                     
                     delta = tensor_to_img(self.model.reserved_delta[0],size)
-                    attacked_img = tensor_to_img(de_normalize(self.model.reserved_attacked_img,self.mean_value,self.std_value),size)
-                    attacked_img_sa = tensor_to_img(de_normalize(self.model.reserved_attacked_img_sa,self.mean_value,self.std_value),size)
-                    attacked_img_backtracked = tensor_to_img(de_normalize(self.model.reserved_attacked_img_backtracked_sa,self.mean_value,self.std_value),size)
+                    attacked_img = tensor_to_img(de_normalize(self.model.reserved_attacked_img[0],self.mean_value,self.std_value),size)
+                    attacked_img_sa = tensor_to_img(de_normalize(self.model.reserved_attacked_img_sa[0],self.mean_value,self.std_value),size)
+                    attacked_img_backtracked = tensor_to_img(de_normalize(self.model.reserved_attacked_img_backtracked_sa[0],self.mean_value,self.std_value),size)
                     
                     ori_img.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'ori_img_'+str(epoch)+'.png')
                     mask.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'mask_'+str(epoch)+'.png')
