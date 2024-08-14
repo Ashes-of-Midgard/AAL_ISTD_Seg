@@ -146,21 +146,20 @@ class Trainer(object):
                     sa_overlayed.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'sa_over_'+str(epoch)+'.png')
                     backtracked_sa_overlayed.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'backtracked_sa_over_'+str(epoch)+'.png')
                     mask.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'mask_'+str(epoch)+'.png')
-                    if args.attack_layer == [0]:
-                        delta = tensor_to_img(self.model.reserved_delta[0],size)
-                        delta.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'delta_'+str(epoch)+'.png')
-                        attacked_img = tensor_to_img(de_normalize(data[0]+0.01*self.model.reserved_delta[0],
-                                                                  self.mean_value,self.std_value),
-                                                     size)
-                        attacked_img_sa = tensor_to_img(de_normalize(data[0]+0.01*self.model.reserved_sa[0]*self.model.reserved_delta[0],
-                                                                     self.mean_value, self.std_value),
-                                                        size)
-                        attacked_img_backtracked = tensor_to_img(de_normalize(data[0]+0.01*self.model.reserved_backtracked_sa[0]*self.model.reserved_delta[0],
-                                                                              self.mean_value, self.std_value),
-                                                                 size)
-                        attacked_img.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_'+str(epoch)+'.png')
-                        attacked_img_sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_sa_'+str(epoch)+'.png')
-                        attacked_img_backtracked.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_backtracked_'+str(epoch)+'.png')
+                    delta = tensor_to_img(self.model.reserved_delta[0],size)
+                    delta.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'delta_'+str(epoch)+'.png')
+                    attacked_img = tensor_to_img(de_normalize(data[0]+args.eps*self.model.reserved_delta[0],
+                                                              self.mean_value,self.std_value),
+                                                size)
+                    attacked_img_sa = tensor_to_img(de_normalize(data[0]+args.eps*self.model.reserved_sa[0]*self.model.reserved_delta[0],
+                                                                 self.mean_value, self.std_value),
+                                                    size)
+                    attacked_img_backtracked = tensor_to_img(de_normalize(data[0]+args.eps*self.model.reserved_backtracked_sa[0]*self.model.reserved_delta[0],
+                                                                          self.mean_value, self.std_value),
+                                                             size)
+                    attacked_img.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_'+str(epoch)+'.png')
+                    attacked_img_sa.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_sa_'+str(epoch)+'.png')
+                    attacked_img_backtracked.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_backtracked_'+str(epoch)+'.png')
             else:
                 pred = self.model(data)
             loss = SoftIoULoss(pred, labels)
