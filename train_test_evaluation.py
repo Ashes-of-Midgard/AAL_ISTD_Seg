@@ -21,7 +21,8 @@ from model.load_param_data         import  load_dataset, load_param
 # model
 
 from model.net import (LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM,
-                       LightWeightNetwork_FGSM_SA, LightWeightNetwork_RA, LightWeightNetwork_SA)
+                       LightWeightNetwork_FGSM_SA, LightWeightNetwork_RA, LightWeightNetwork_SA,
+                       LightWeightNetwork_IFF)
 
 import scipy.io as scio
 
@@ -89,6 +90,8 @@ class Trainer(object):
             model = LightWeightNetwork_SA(attack_layer_ids=args.attack_layer)
         elif args.model == 'UNet-RA':
             model = LightWeightNetwork_RA(attack_layer_ids=args.attack_layer)
+        elif args.model == 'UNet-IFF':
+            model = LightWeightNetwork_IFF(iff_back_num=args.iff_back_num)
 
         model = model.cuda()
         model.apply(weights_init_xavier)
