@@ -12,7 +12,7 @@ def parse_args():
     parser.add_argument('--downlayer', type=str, default='two',
                         help='three, four')
     parser.add_argument('--supervision', type=str, default='Full')
-    parser.add_argument('--attack_layer', type=int, nargs='+', default=[0])
+    parser.add_argument('--eps', type=float, default=0.01)
     parser.add_argument('--iff_back_num', type=int, default=1)
 
 

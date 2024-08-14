@@ -21,7 +21,7 @@ from model.load_param_data         import  load_dataset, load_param
 # model
 
 from model.net import (LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM,
-                       LightWeightNetwork_FGSM_SA, LightWeightNetwork_RA, LightWeightNetwork_SA,
+                       LightWeightNetwork_FGSM_SA, LightWeightNetwork_RN, LightWeightNetwork_SA,
                        LightWeightNetwork_IFF)
 
 import scipy.io as scio
@@ -79,17 +79,17 @@ class Trainer(object):
 
         # Choose and load model (this paper is finished by one GPU)
         if args.model == 'UNet':
-            model       = LightWeightNetwork()
+            model = LightWeightNetwork()
         elif args.model == 'UNet-AAL':
-            model = LightWeightNetwork_AAL(attack_layer_ids=args.attack_layer)
+            model = LightWeightNetwork_AAL(eps=args.eps)
         elif args.model == 'UNet-FGSM':
-            model = LightWeightNetwork_FGSM(attack_layer_ids=args.attack_layer)
+            model = LightWeightNetwork_FGSM(eps=args.eps)
         elif args.model == 'UNet-FGSM-SA':
-            model = LightWeightNetwork_FGSM_SA(attack_layer_ids=args.attack_layer)
+            model = LightWeightNetwork_FGSM_SA(eps=args.eps)
         elif args.model == 'UNet-SA':
-            model = LightWeightNetwork_SA(attack_layer_ids=args.attack_layer)
-        elif args.model == 'UNet-RA':
-            model = LightWeightNetwork_RA(attack_layer_ids=args.attack_layer)
+            model = LightWeightNetwork_SA(eps=args.eps)
+        elif args.model == 'UNet-RN':
+            model = LightWeightNetwork_RN(eps=args.eps)
         elif args.model == 'UNet-IFF':
             model = LightWeightNetwork_IFF(iff_back_num=args.iff_back_num)
 
