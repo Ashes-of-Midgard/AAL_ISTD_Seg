@@ -233,22 +233,23 @@ class Trainer(object):
             save_model(self.best_iou, self.save_dir, self.save_prefix,
                    self.train_loss, self.test_loss, recall, precision, epoch, self.model.state_dict())
 
-    def evaluation(self,epoch):
-        candidate_model_dir = os.listdir('result_WS/' + self.save_dir )
-        for model_num in range(len(candidate_model_dir)):
-            model_dir = 'result_WS/' + self.save_dir + '/' + candidate_model_dir[model_num]
-            if '.pth.tar' in model_dir:
-                model_path = model_dir
+    def evaluation(self,epoch,only_test=False):
+        if not only_test:
+            candidate_model_dir = os.listdir('result_WS/' + self.save_dir )
+            for model_num in range(len(candidate_model_dir)):
+                model_dir = 'result_WS/' + self.save_dir + '/' + candidate_model_dir[model_num]
+                if '.pth.tar' in model_dir:
+                    model_path = model_dir
 
-        checkpoint        = torch.load(model_path)
-        self.model.load_state_dict(checkpoint['state_dict'])
-        self.model = self.model.to('cuda')
+            checkpoint        = torch.load(model_path)
+            self.model.load_state_dict(checkpoint['state_dict'])
+            self.model = self.model.to('cuda')
 
-        evaluation_save_path =  './result_WS/' + self.save_dir
-        target_image_path    =  evaluation_save_path + '/' +'visulization_result'
-        target_dir           =  evaluation_save_path + '/' +'visulization_fuse'
+            evaluation_save_path =  './result_WS/' + self.save_dir
+            target_image_path    =  evaluation_save_path + '/' +'visulization_result'
+            target_dir           =  evaluation_save_path + '/' +'visulization_fuse'
 
-        make_visulization_dir(target_image_path, target_dir)
+            make_visulization_dir(target_image_path, target_dir)
 
         # Load trained model
         # Test
@@ -276,7 +277,8 @@ class Trainer(object):
 
             FA, PD    = self.PD_FA.get(len(self.val_img_ids), args.crop_size)
             test_loss = losses.avg
-            scio.savemat(evaluation_save_path + '/' + 'PD_FA_' + str(255), {'number_record1': FA, 'number_record2': PD})
+            if not only_test:
+                scio.savemat(evaluation_save_path + '/' + 'PD_FA_' + str(255), {'number_record1': FA, 'number_record2': PD})
 
             print('test_loss, %.4f' % (test_loss))
             print('mean_IOU:', mean_IOU)
@@ -325,11 +327,14 @@ def sa_heat_map(sa:Tensor) -> Image.Image:
 
 def main(args):
     trainer = Trainer(args)
-    for epoch in range(args.start_epoch, args.epochs):
-        trainer.training(epoch)
-        trainer.testing(epoch)
-        if (epoch+1) ==args.epochs:
-           trainer.evaluation(epoch)
+    if not args.only_test:
+        for epoch in range(args.start_epoch, args.epochs):
+            trainer.training(epoch)
+            trainer.testing(epoch)
+            if (epoch+1) ==args.epochs:
+                trainer.evaluation(epoch)
+    else:
+        trainer.evaluation(0, only_test=True)
 
 
 if __name__ == "__main__":
