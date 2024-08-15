@@ -6,6 +6,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Dense_Nested_Attention_Network_For_SIRST')
 
     parser.add_argument('--save_inter', action='store_true')
+    parser.add_argument('--loss', type=str, default='SoftIoULoss')
+    parser.add_argument('--only_test', action='store_true')
 
     # choose model
     parser.add_argument('--model', type=str, default='UNet')
@@ -77,7 +79,8 @@ def parse_args():
     args.save_dir = make_dir(args.gpus, args.deep_supervision, args.dataset, args.model)
 
     # save training log
-    save_train_log(args, args.save_dir)
+    if not args.only_test:
+        save_train_log(args, args.save_dir)
 
     # the parser
     return args

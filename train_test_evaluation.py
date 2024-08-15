@@ -93,9 +93,15 @@ class Trainer(object):
         elif args.model == 'UNet-IFF':
             model = LightWeightNetwork_IFF(iff_back_num=args.iff_back_num)
 
-        model = model.cuda()
-        model.apply(weights_init_xavier)
-        print("Model Initializing")
+        if args.model_dir is not None:
+            checkpoint = torch.load(args.model_dir)
+            model.load_state_dict(checkpoint['state_dict'])
+            model = model.cuda()
+            print(f'Model loaded from {args.model_dir}')
+        else:
+            model = model.cuda()
+            model.apply(weights_init_xavier)
+            print("Model Initializing")
         self.model = model
 
         # Optimizer and lr scheduling
@@ -111,6 +117,12 @@ class Trainer(object):
         self.best_iou       = 0
         self.best_recall    = [0,0,0,0,0,0,0,0,0,0,0]
         self.best_precision = [0,0,0,0,0,0,0,0,0,0,0]
+
+        # Loss
+        if args.loss == 'SoftIoULoss':
+            self.loss_fn = SoftIoULoss
+        elif args.loss == 'SLSIoULoss':
+            self.loss_fn = SLSIoULoss(int(0.25*args.epochs))
 
     # Training
     def training(self, epoch):
@@ -128,7 +140,10 @@ class Trainer(object):
             data   = data.cuda()
             labels = labels.cuda()
             if type(self.model) in (LightWeightNetwork_AAL, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA):
-                pred = self.model(data, labels, SoftIoULoss)
+                if type(self.loss_fn) == SLSIoULoss:
+                    pred = self.model(data, labels, lambda x,y:self.loss_fn(x,y,epoch=epoch))
+                else:
+                    pred = self.model(data, labels, self.loss_fn)
                 if i==0 and args.save_inter and type(self.model) == LightWeightNetwork_AAL:
                     os.makedirs('./result_WS/'+args.save_dir+'/'+'inter_results',exist_ok=True)
                     size = [img_sizes[0][0].item(), img_sizes[0][1].item()]
@@ -162,7 +177,10 @@ class Trainer(object):
                     attacked_img_backtracked.save('./result_WS/'+args.save_dir+'/'+'inter_results'+'/'+'img_attacked_backtracked_'+str(epoch)+'.png')
             else:
                 pred = self.model(data)
-            loss = SoftIoULoss(pred, labels)
+            if type(self.loss_fn)==SLSIoULoss:
+                loss = self.loss_fn(pred, labels, epoch)
+            else:
+                loss = self.loss_fn(pred, labels)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -185,7 +203,10 @@ class Trainer(object):
                 data   = data.cuda()
                 labels = labels.cuda()
                 pred   = self.model(data)
-                loss   = SoftIoULoss(pred, labels)
+                if type(self.loss_fn)==SLSIoULoss:
+                    loss = self.loss_fn(pred, labels, epoch)
+                else:
+                    loss = self.loss_fn(pred, labels)
                 losses.update(loss.item(), pred.size(0))
                 self.ROC.update(pred, labels)
                 self.mIoU.update(pred, labels)
@@ -236,7 +257,10 @@ class Trainer(object):
                 data   = data.cuda()
                 labels = labels.cuda()
                 pred = self.model(data)
-                loss = SoftIoULoss(pred, labels)
+                if type(self.loss_fn)==SLSIoULoss:
+                    loss = self.loss_fn(pred, labels, epoch)
+                else:
+                    loss = self.loss_fn(pred, labels)
                 #save_Pred_GT_for_split_evalution(pred, labels, target_image_path, self.val_img_ids, num, args.suffix, args.crop_size)
                 num += 1
 
