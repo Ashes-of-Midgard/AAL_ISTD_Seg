@@ -124,6 +124,16 @@ class Trainer(object):
         elif args.loss == 'SLSIoULoss':
             self.loss_fn = SLSIoULoss(int(0.25*args.epochs))
 
+        # EMA
+        RANK = int(os.getenv('RANK', -1))
+        if args.ema:
+            self.ema = ModelEMA(self.model) if RANK in {-1, 0} else None
+        else:
+            self.ema = None
+
+        self.only_test = args.only_test
+        self.test_mode = args.test_mode
+
     # Training
     def training(self, epoch):
         lr = self.scheduler.get_lr()[0]
@@ -188,6 +198,8 @@ class Trainer(object):
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            if args.ema:
+                self.ema.update(self.model)
             losses.update(loss.item(), pred.size(0))
             tbar.set_description('Epoch %d, training loss %.4f' % (epoch, losses.avg))
         self.train_loss = losses.avg
@@ -198,7 +210,11 @@ class Trainer(object):
     # Testing
     def testing (self, epoch):
         tbar   = tqdm(self.test_data)
-        self.model.eval()
+        if self.ema:
+            model = self.ema.ema
+        else:
+            model = self.model
+        model.eval()
         self.mIoU.reset()
         losses = AverageMeter()
 
@@ -206,7 +222,7 @@ class Trainer(object):
             for i, (data, labels, img_sizes) in enumerate(tbar):
                 data   = data.cuda()
                 labels = labels.cuda()
-                pred   = self.model(data)
+                pred   = model(data)
                 if type(self.loss_fn)==SLSIoULoss:
                     loss = self.loss_fn(pred, labels, epoch)
                 else:
@@ -231,10 +247,10 @@ class Trainer(object):
         if mean_IOU > self.best_iou:
             self.best_iou = mean_IOU
             save_model(self.best_iou, self.save_dir, self.save_prefix,
-                   self.train_loss, self.test_loss, recall, precision, epoch, self.model.state_dict())
+                   self.train_loss, self.test_loss, recall, precision, epoch, model.state_dict())
 
-    def evaluation(self,epoch,only_test=False):
-        if not only_test:
+    def evaluation(self,epoch):
+        if not self.only_test:
             candidate_model_dir = os.listdir('result_WS/' + self.save_dir )
             for model_num in range(len(candidate_model_dir)):
                 model_dir = 'result_WS/' + self.save_dir + '/' + candidate_model_dir[model_num]
@@ -253,38 +269,58 @@ class Trainer(object):
 
         # Load trained model
         # Test
-        self.model.eval()
+        model = self.model
+        model.eval()
         tbar = tqdm(self.eval_data)
         losses = AverageMeter()
-        with torch.no_grad():
-            num = 0
-            for i, (data, labels, img_sizes) in enumerate(tbar):
-                data   = data.cuda()
-                labels = labels.cuda()
-                pred = self.model(data)
+        num = 0
+        for i, (data, labels, img_sizes) in enumerate(tbar):
+            data   = data.cuda()
+            labels = labels.cuda()
+            if self.test_mode == 'clean':
+                with torch.no_grad():
+                    pred = model(data)
+            elif self.test_mode == 'FGSM':
+                adv_delta = torch.zeros_like(data).to(data.device).requires_grad_()
+                pred_clean = model(data+adv_delta)
+                if type(self.loss_fn)==SLSIoULoss:
+                    loss = self.loss_fn(pred_clean, labels, epoch)
+                else:
+                    loss = self.loss_fn(pred_clean, labels)
+                loss.backward()
+                adv_delta_grad = adv_delta.grad
+                adv_delta = args.eps * torch.sign(adv_delta_grad)
+                adv_delta = adv_delta.detach()
+                with torch.no_grad():
+                    pred = model(data+adv_delta)
+            elif self.test_mode == 'random_noise':
+                adv_delta = torch.randn_like(data)
+                with torch.no_grad():
+                    pred = model(data+args.eps*adv_delta)
+            with torch.no_grad():
                 if type(self.loss_fn)==SLSIoULoss:
                     loss = self.loss_fn(pred, labels, epoch)
                 else:
                     loss = self.loss_fn(pred, labels)
-                #save_Pred_GT_for_split_evalution(pred, labels, target_image_path, self.val_img_ids, num, args.suffix, args.crop_size)
-                num += 1
+            #save_Pred_GT_for_split_evalution(pred, labels, target_image_path, self.val_img_ids, num, args.suffix, args.crop_size)
+            num += 1
 
-                losses.    update(loss.item(), pred.size(0))
-                self.ROC.  update(pred, labels)
-                self.mIoU. update(pred, labels)
-                self.PD_FA.update(pred, labels)
-                _, mean_IOU = self.mIoU.get()
+            losses.    update(loss.item(), pred.size(0))
+            self.ROC.  update(pred, labels)
+            self.mIoU. update(pred, labels)
+            self.PD_FA.update(pred, labels)
+            _, mean_IOU = self.mIoU.get()
 
-            FA, PD    = self.PD_FA.get(len(self.val_img_ids), args.crop_size)
-            test_loss = losses.avg
-            if not only_test:
-                scio.savemat(evaluation_save_path + '/' + 'PD_FA_' + str(255), {'number_record1': FA, 'number_record2': PD})
+        FA, PD    = self.PD_FA.get(len(self.val_img_ids), args.crop_size)
+        test_loss = losses.avg
+        if not self.only_test:
+            scio.savemat(evaluation_save_path + '/' + 'PD_FA_' + str(255), {'number_record1': FA, 'number_record2': PD})
 
-            print('test_loss, %.4f' % (test_loss))
-            print('mean_IOU:', mean_IOU)
-            print('PD:', PD)
-            print('FA:', FA)
-            self.best_iou = mean_IOU
+        print('test_loss, %.4f' % (test_loss))
+        print('mean_IOU:', mean_IOU)
+        print('PD:', PD)
+        print('FA:', FA)
+        self.best_iou = mean_IOU
 
 
 def tensor_to_img(input:Tensor, img_size:Tuple[int, int]) -> Image.Image:
@@ -334,7 +370,7 @@ def main(args):
             if (epoch+1) ==args.epochs:
                 trainer.evaluation(epoch)
     else:
-        trainer.evaluation(0, only_test=True)
+        trainer.evaluation(0)
 
 
 if __name__ == "__main__":

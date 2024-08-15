@@ -8,6 +8,8 @@ def parse_args():
     parser.add_argument('--save_inter', action='store_true')
     parser.add_argument('--loss', type=str, default='SoftIoULoss')
     parser.add_argument('--only_test', action='store_true')
+    parser.add_argument('--test_mode', type=str, default='clean', choices=['clean', 'FGSM', 'random_noise'])
+    parser.add_argument('--ema', action='store_true')
 
     # choose model
     parser.add_argument('--model', type=str, default='UNet')
@@ -75,12 +77,15 @@ def parse_args():
                         help='Training with GPUs, you can specify 1,3 for example.')
     args = parser.parse_args()
 
-    # make dir for save result
-    args.save_dir = make_dir(args.gpus, args.deep_supervision, args.dataset, args.model)
-
-    # save training log
     if not args.only_test:
+        # make dir for save result
+        args.save_dir = make_dir(args.gpus, args.deep_supervision, args.dataset, args.model)
+
+        # save training log
         save_train_log(args, args.save_dir)
+
+    else:
+        args.save_dir = None
 
     # the parser
     return args

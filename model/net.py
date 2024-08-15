@@ -298,7 +298,7 @@ class LightWeightNetwork_AAL(nn.Module):
         self.conv0_4 = self._make_layer(block, nb_filter[0] + nb_filter[1], nb_filter[0])
 
         self.sa_norm = nn.BatchNorm2d(1)
-        self.mask_pool = nn.MaxPool2d(kernel_size=7, stride=1, padding=3)
+        self.mask_pool = nn.AvgPool2d(kernel_size=7, stride=1, padding=3)
 
         self.final = nn.Conv2d(nb_filter[0], num_classes, kernel_size=1)
 
@@ -351,7 +351,7 @@ class LightWeightNetwork_AAL(nn.Module):
         back_mask = self.mask_pool(back_mask)
         self.reserved_back_mask = back_mask
         one = torch.ones_like(back_mask)
-        backtracked_sa = self.sa_norm((one+back_mask) * sa)
+        backtracked_sa = self.sa_norm((0.3*one+0.7*back_mask) * sa)
         backtracked_sa = backtracked_sa.detach()
         self.reserved_backtracked_sa = backtracked_sa
         ### end backtracking ###
