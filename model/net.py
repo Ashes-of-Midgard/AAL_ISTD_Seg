@@ -297,6 +297,9 @@ class LightWeightNetwork_AAL(nn.Module):
         self.conv1_3 = self._make_layer(block, nb_filter[1] + nb_filter[2], nb_filter[1])
         self.conv0_4 = self._make_layer(block, nb_filter[0] + nb_filter[1], nb_filter[0])
 
+        self.sa_norm = nn.BatchNorm2d(1)
+        self.mask_pool = nn.MaxPool2d(kernel_size=7, stride=1, padding=3)
+
         self.final = nn.Conv2d(nb_filter[0], num_classes, kernel_size=1)
 
         self.eps = eps
@@ -308,6 +311,7 @@ class LightWeightNetwork_AAL(nn.Module):
         self.reserved_attacked_img = None
         self.reserved_attacked_img_sa = None
         self.reserved_attacked_img_backtracked_sa = None
+        self.reserved_back_mask = None
 
     def _make_layer(self, block, input_channels, output_channels, num_blocks=1):
         layers = []
@@ -342,10 +346,12 @@ class LightWeightNetwork_AAL(nn.Module):
         self.reserved_sa = sa
 
         ### backtracking ###
-        delta_channel_max, _ = torch.max(adv_delta, dim=1, keepdim=True)
+        delta_channel_max, _ = torch.max(torch.abs(adv_delta_grad), dim=1, keepdim=True)
         back_mask = mask_top_rate(delta_channel_max, 0.01)
+        back_mask = self.mask_pool(back_mask)
+        self.reserved_back_mask = back_mask
         one = torch.ones_like(back_mask)
-        backtracked_sa = (one - 0.05*back_mask) * sa
+        backtracked_sa = self.sa_norm((one+back_mask) * sa)
         backtracked_sa = backtracked_sa.detach()
         self.reserved_backtracked_sa = backtracked_sa
         ### end backtracking ###
