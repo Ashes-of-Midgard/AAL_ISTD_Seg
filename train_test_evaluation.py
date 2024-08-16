@@ -273,6 +273,9 @@ class Trainer(object):
         model.eval()
         tbar = tqdm(self.eval_data)
         losses = AverageMeter()
+        self.ROC.reset()
+        self.mIoU.reset()
+        self.PD_FA.reset()
         num = 0
         for i, (data, labels, img_sizes) in enumerate(tbar):
             data   = data.cuda()
