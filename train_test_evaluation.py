@@ -20,9 +20,10 @@ from model.load_param_data         import  load_dataset, load_param
 
 # model
 
-from model.net import (LightWeightNetwork, LightWeightNetwork_AAL, LightWeightNetwork_FGSM,
+from model.net import (LightWeightNetwork, LightWeightNetwork_AAL_1, LightWeightNetwork_FGSM,
                        LightWeightNetwork_FGSM_SA, LightWeightNetwork_RN, LightWeightNetwork_SA,
-                       LightWeightNetwork_IFF)
+                       LightWeightNetwork_IFF, LightWeightNetwork_AAL_2, LightWeightNetwork_AAL_3,
+                       LightWeightNetwork_AAL_4, LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6)
 
 import scipy.io as scio
 
@@ -80,8 +81,18 @@ class Trainer(object):
         # Choose and load model (this paper is finished by one GPU)
         if args.model == 'UNet':
             model = LightWeightNetwork()
-        elif args.model == 'UNet-AAL':
-            model = LightWeightNetwork_AAL(eps=args.eps)
+        elif args.model == 'UNet-AAL-1':
+            model = LightWeightNetwork_AAL_1(eps=args.eps)
+        elif args.model == 'UNet-AAL-2':
+            model = LightWeightNetwork_AAL_2(eps=args.eps)
+        elif args.model == 'UNet-AAL-3':
+            model = LightWeightNetwork_AAL_3(eps=args.eps)
+        elif args.model == 'UNet-AAL-4':
+            model = LightWeightNetwork_AAL_4(eps=args.eps)
+        elif args.model == 'UNet-AAL-5':
+            model = LightWeightNetwork_AAL_5(eps=args.eps)
+        elif args.model == 'UNet-AAL-6':
+            model = LightWeightNetwork_AAL_6(eps=args.eps)
         elif args.model == 'UNet-FGSM':
             model = LightWeightNetwork_FGSM(eps=args.eps)
         elif args.model == 'UNet-FGSM-SA':
@@ -149,12 +160,16 @@ class Trainer(object):
         for i, ( data, labels, img_sizes) in enumerate(tbar):
             data   = data.cuda()
             labels = labels.cuda()
-            if type(self.model) in (LightWeightNetwork_AAL, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA):
+            if type(self.model) in (LightWeightNetwork_AAL_1, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA,
+                                    LightWeightNetwork_AAL_2, LightWeightNetwork_AAL_3, LightWeightNetwork_AAL_4,
+                                    LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6):
                 if type(self.loss_fn) == SLSIoULoss:
                     pred = self.model(data, labels, lambda x,y:self.loss_fn(x,y,epoch=epoch))
                 else:
                     pred = self.model(data, labels, self.loss_fn)
-                if i==0 and args.save_inter and type(self.model) == LightWeightNetwork_AAL:
+                if i==0 and args.save_inter and type(self.model) in [LightWeightNetwork_AAL_1, LightWeightNetwork_AAL_2,
+                                                                     LightWeightNetwork_AAL_3, LightWeightNetwork_AAL_4,
+                                                                     LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6]:
                     os.makedirs('./result_WS/'+args.save_dir+'/'+'inter_results',exist_ok=True)
                     size = [img_sizes[0][0].item(), img_sizes[0][1].item()]
                     
