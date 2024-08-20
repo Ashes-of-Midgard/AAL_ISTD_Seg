@@ -23,7 +23,9 @@ from model.load_param_data         import  load_dataset, load_param
 from model.net import (LightWeightNetwork, LightWeightNetwork_AAL_1, LightWeightNetwork_FGSM,
                        LightWeightNetwork_FGSM_SA, LightWeightNetwork_RN, LightWeightNetwork_SA,
                        LightWeightNetwork_IFF, LightWeightNetwork_AAL_2, LightWeightNetwork_AAL_3,
-                       LightWeightNetwork_AAL_4, LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6)
+                       LightWeightNetwork_AAL_4, LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6,
+                       LightWeightNetwork_AAL_7, LightWeightNetwork_AAL_8, LightWeightNetwork_SA_2,
+                       LightWeightNetwork_AAL_9)
 
 import scipy.io as scio
 
@@ -93,12 +95,20 @@ class Trainer(object):
             model = LightWeightNetwork_AAL_5(eps=args.eps)
         elif args.model == 'UNet-AAL-6':
             model = LightWeightNetwork_AAL_6(eps=args.eps)
+        elif args.model == 'UNet-AAL-7':
+            model = LightWeightNetwork_AAL_7(eps=args.eps)
+        elif args.model == 'UNet-AAL-8':
+            model = LightWeightNetwork_AAL_8(eps=args.eps)
+        elif args.model == 'UNet-AAL-9':
+            model = LightWeightNetwork_AAL_9(eps=args.eps)
         elif args.model == 'UNet-FGSM':
             model = LightWeightNetwork_FGSM(eps=args.eps)
         elif args.model == 'UNet-FGSM-SA':
             model = LightWeightNetwork_FGSM_SA(eps=args.eps)
         elif args.model == 'UNet-SA':
             model = LightWeightNetwork_SA(eps=args.eps)
+        elif args.model == 'UNet-SA-2':
+            model = LightWeightNetwork_SA_2(eps=args.eps)
         elif args.model == 'UNet-RN':
             model = LightWeightNetwork_RN(eps=args.eps)
         elif args.model == 'UNet-IFF':
@@ -162,14 +172,17 @@ class Trainer(object):
             labels = labels.cuda()
             if type(self.model) in (LightWeightNetwork_AAL_1, LightWeightNetwork_FGSM, LightWeightNetwork_FGSM_SA,
                                     LightWeightNetwork_AAL_2, LightWeightNetwork_AAL_3, LightWeightNetwork_AAL_4,
-                                    LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6):
+                                    LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6, LightWeightNetwork_AAL_7,
+                                    LightWeightNetwork_AAL_8, LightWeightNetwork_AAL_9):
                 if type(self.loss_fn) == SLSIoULoss:
                     pred = self.model(data, labels, lambda x,y:self.loss_fn(x,y,epoch=epoch))
                 else:
                     pred = self.model(data, labels, self.loss_fn)
                 if i==0 and args.save_inter and type(self.model) in [LightWeightNetwork_AAL_1, LightWeightNetwork_AAL_2,
                                                                      LightWeightNetwork_AAL_3, LightWeightNetwork_AAL_4,
-                                                                     LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6]:
+                                                                     LightWeightNetwork_AAL_5, LightWeightNetwork_AAL_6,
+                                                                     LightWeightNetwork_AAL_7, LightWeightNetwork_AAL_8,
+                                                                     LightWeightNetwork_AAL_9]:
                     os.makedirs('./result_WS/'+args.save_dir+'/'+'inter_results',exist_ok=True)
                     size = [img_sizes[0][0].item(), img_sizes[0][1].item()]
                     
@@ -382,6 +395,7 @@ def sa_heat_map(sa:Tensor) -> Image.Image:
 def main(args):
     trainer = Trainer(args)
     if not args.only_test:
+        print('save dir:',args.save_dir)
         for epoch in range(args.start_epoch, args.epochs):
             trainer.training(epoch)
             trainer.testing(epoch)
